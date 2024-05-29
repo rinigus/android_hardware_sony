@@ -20,8 +20,15 @@ class CreatorModeUtils(private val context: Context) : IDisplayCallback.Stub() {
     private val colorDisplayManager: ColorDisplayManager =
             context.getSystemService(ColorDisplayManager::class.java)
                     ?: throw Exception("Display manager is NULL")
-    private val semcDisplayService: IDisplay =
-            IDisplay.getService() ?: throw Exception("SEMC Display HIDL not found")
+    private val semcDisplayService: IDisplay by lazy {
+        val service = IDisplay.getService() ?: throw Exception("SEMC Display HIDL not found")
+
+        // Register itself as callback for HIDL
+        service.registerCallback(this)
+
+        service.setup()
+        service
+    }
     private val liveDisplayManager: LiveDisplayManager = LiveDisplayManager.getInstance(context)
 
     val isEnabled: Boolean
@@ -38,9 +45,10 @@ class CreatorModeUtils(private val context: Context) : IDisplayCallback.Stub() {
     fun initialize() {
         Log.e(TAG, "Creator Mode controller setup")
 
-        // Register itself as callback for HIDL
-        semcDisplayService.registerCallback(this)
-        semcDisplayService.setup()
+        // Don't apply anything if the setting is disabled
+        if (isEnabled) {
+            setMode(true)
+        }
     }
 
     override fun onWhiteBalanceMatrixChanged(matrix: PccMatrix) {
